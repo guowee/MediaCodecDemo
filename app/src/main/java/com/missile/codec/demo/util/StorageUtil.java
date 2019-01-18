@@ -6,9 +6,7 @@ import java.io.File;
 
 
 public class StorageUtil {
-    public static String getDirName() {
-        return "SCamera";
-    }
+
 
     public static String getSDPath() {
         // 判断是否挂载
@@ -19,11 +17,11 @@ public class StorageUtil {
     }
 
     public static String getImagePath() {
-        return getSDPath() + "/" + getDirName() + "/image/";
+        return getSDPath() + "/image/";
     }
 
     public static String getVideoPath() {
-        return getSDPath() + /*"/" + getDirName() +*/ "/video/";
+        return getSDPath() + "/video/";
     }
 
     public static boolean checkDirExist(String path) {

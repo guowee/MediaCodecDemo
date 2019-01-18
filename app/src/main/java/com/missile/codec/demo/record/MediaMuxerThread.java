@@ -12,7 +12,9 @@ public class MediaMuxerThread extends Thread {
     private Queue<MutexBean> mMutexBeanQueue;
     private boolean isRecording;
     private VideoRecordThread mVideoRecordThread;
+    private AudioRecordThread mAudioRecordThread;
     private int mVideoTrack;
+    private int mAudioTrack;
     private String path;
     private MediaMuxer mMediaMuxer;
     private MediaMuxerCallback mMediaMuxerCallback;
@@ -27,11 +29,13 @@ public class MediaMuxerThread extends Thread {
     }
 
     private void prepareMediaMuxer(int width, int height) {
-
         try {
+            mAudioTrack = -1;
             mVideoTrack = -1;
             mMediaMuxer = new MediaMuxer(path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            mAudioRecordThread = new AudioRecordThread(this);
             mVideoRecordThread = new VideoRecordThread(this, width, height);
+            mAudioRecordThread.prepare();
             mVideoRecordThread.prepare();
         } catch (IOException e) {
             e.printStackTrace();
@@ -39,11 +43,19 @@ public class MediaMuxerThread extends Thread {
     }
 
     private void startMediaMuxer() {
-        if (!isMediaMuxerStart && isVideoTrackExist()) {
+        if (!isMediaMuxerStart && isVideoTrackExist() && isAudioTrackExist()) {
             mMediaMuxer.start();
             isMediaMuxerStart = true;
             start();
         }
+    }
+
+    public void addAudioTrack(MediaFormat mediaFormat) {
+        if (mMediaMuxer == null) {
+            return;
+        }
+        mAudioTrack = mMediaMuxer.addTrack(mediaFormat);
+        startMediaMuxer();
     }
 
     public void addVideoTrack(MediaFormat mediaFormat) {
@@ -54,6 +66,10 @@ public class MediaMuxerThread extends Thread {
         startMediaMuxer();
     }
 
+    public boolean isAudioTrackExist() {
+        return mAudioTrack >= 0;
+    }
+
     public boolean isVideoTrackExist() {
         return mVideoTrack >= 0;
     }
@@ -62,6 +78,7 @@ public class MediaMuxerThread extends Thread {
         prepareMediaMuxer(width, height);
         isRecording = true;
         isMediaMuxerStart = false;
+        mAudioRecordThread.begin();
         mVideoRecordThread.begin();
     }
 
@@ -77,12 +94,15 @@ public class MediaMuxerThread extends Thread {
             mVideoRecordThread.end();
             mVideoRecordThread.join();
             mVideoRecordThread = null;
+            mAudioRecordThread.end();
+            mAudioRecordThread.join();
+            mAudioRecordThread = null;
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
 
-    public void addMutexData(MutexBean data) {
+    public synchronized void addMutexData(MutexBean data) {
         mMutexBeanQueue.offer(data);
     }
 
@@ -94,7 +114,7 @@ public class MediaMuxerThread extends Thread {
                 if (data.isVideo()) {
                     mMediaMuxer.writeSampleData(mVideoTrack, data.getByteBuffer(), data.getBufferInfo());
                 } else {
-                    //mMediaMuxer.writeSampleData(mAudioTrack, data.getByteBuffer(), data.getBufferInfo());
+                    mMediaMuxer.writeSampleData(mAudioTrack, data.getByteBuffer(), data.getBufferInfo());
                 }
             } else {
                 try {
